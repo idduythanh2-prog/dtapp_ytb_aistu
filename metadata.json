@@ -1,0 +1,6 @@
+{
+  "name": "FlowPrompt Studio",
+  "description": "A creative prompt generator and assistant for Google Veo and Flowmusic.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
