@@ -1,0 +1,16 @@
+{
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/*.js": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/brainstorm", "destination": "/api/brainstorm" },
+    { "source": "/api/generate-prompts", "destination": "/api/generate-prompts" },
+    { "source": "/api/analyze-trends", "destination": "/api/analyze-trends" },
+    { "source": "/api/analyze-video", "destination": "/api/analyze-video" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
