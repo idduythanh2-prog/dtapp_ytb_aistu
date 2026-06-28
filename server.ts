@@ -120,12 +120,7 @@ async function startServer() {
       const multiShotConstraint = settings?.multiShot ? `\n\n[CRITICAL REQUIREMENT: STORYBOARD / MULTI-SHOT]\nNgười dùng muốn một kịch bản gồm 3-4 cảnh quay (shots) nối tiếp nhau để tạo video dài. Các shot BẮT BUỘC phải liên kết logic thành một câu chuyện (Ví dụ: Shot 1: Toàn cảnh thiết lập bối cảnh -> Shot 2: Trung cảnh nhân vật hành động -> Shot 3: Cận cảnh chi tiết/cảm xúc). Phải GIỮ NGUYÊN tính nhất quán (consistency) của nhân vật và bối cảnh giữa các shot. Trả về mảng chuỗi tiếng Anh trong trường "shotPrompts".` : '';
       const sfxConstraint = settings?.generateSFX ? `\n\n[CRITICAL REQUIREMENT: SOUND EFFECTS]\nNgười dùng muốn tạo các hiệu ứng âm thanh (SFX) riêng lẻ để lồng ghép vào video (ví dụ: tiếng mưa, gió, tiếng bước chân, whoosh, riser, impact). Hãy tạo ra 3-5 prompt âm thanh thật chi tiết bằng tiếng Anh (tập trung vào Textures và Tonal characteristics) và trả về mảng chuỗi trong trường "sfxPrompts".` : '';
       const platformConstraint = settings?.platformTarget ? `\n\n[PLATFORM TARGET: ${settings.platformTarget}]\nĐịnh dạng và phong cách phải phù hợp tối đa với nền tảng này. Nếu là Shorts/TikTok: Nhịp độ nhanh, hook mạnh ngay từ đầu. Nếu là YouTube Long-form: Nhịp độ kể chuyện từ tốn, chi tiết. Nếu là Cinematic Trailer: Kịch tính, epic.` : '';
-      const seoConstraint = settings?.generateSEO ? `\n\n[CRITICAL REQUIREMENT: YOUTUBE 2026 SEO, COMPLIANCE & METADATA]\nNgười dùng cần bộ siêu dữ liệu (Metadata) chuẩn SEO YouTube. Hãy tạo:
-- youtubeTitle: Tiêu đề tối ưu CTR, có Hook gây tò mò, tối đa 70 ký tự.
-- youtubeDescription: Mô tả chuẩn SEO 2026. BẮT BUỘC có Timestamps (Chương video).
-- youtubeTags: Mảng các từ khóa (long-tail keywords).
-- aiDisclaimer: Tuyên bố từ chối trách nhiệm về AI (AI generated content disclosure) BẮT BUỘC DÁN VÀO MÔ TẢ (tiếng Việt), ghi chú thêm cho người dùng nhớ tick vào ô "Altered content" (Nội dung được thay đổi) trong YouTube Studio khi publish video (nếu video chân thực).
-- thumbnailIdeas: Tạo 2-3 gợi ý (ideas) cho ảnh Thumbnail cực kỳ thu hút. Trả về mảng object gồm 'ideaVi' (mô tả ý tưởng tiếng Việt) và 'exactPromptEn' (prompt chính xác bằng tiếng Anh để dán vào Midjourney/DALL-E).` : '';
+      const seoConstraint = settings?.generateSEO ? `\n\n[CRITICAL REQUIREMENT: YOUTUBE 2026 SEO, COMPLIANCE & METADATA]\nNgười dùng cần bộ siêu dữ liệu (Metadata) chuẩn SEO YouTube. Hãy tạo:\n- youtubeTitle: Tiêu đề tối ưu CTR, có Hook gây tò mò, tối đa 70 ký tự.\n- youtubeDescription: Mô tả chuẩn SEO 2026. BẮT BUỘC có Timestamps (Chương video).\n- youtubeTags: Mảng các từ khóa (long-tail keywords).\n- aiDisclaimer: Tuyên bố từ chối trách nhiệm về AI (AI generated content disclosure) BẮT BUỘC DÁN VÀO MÔ TẢ (tiếng Việt), ghi chú thêm cho người dùng nhớ tick vào ô "Altered content" (Nội dung được thay đổi) trong YouTube Studio khi publish video (nếu video chân thực).\n- thumbnailIdeas: Tạo 2-3 gợi ý (ideas) cho ảnh Thumbnail cực kỳ thu hút. Trả về mảng object gồm 'ideaVi' (mô tả ý tưởng tiếng Việt) và 'exactPromptEn' (prompt chính xác bằng tiếng Anh để dán vào Midjourney/DALL-E).` : '';
       const voiceoverConstraint = settings?.generateVoiceover ? `\n\n[CRITICAL REQUIREMENT: VOICEOVER SCRIPT]\nNgười dùng muốn tạo kịch bản lời bình/thuyết minh (Voiceover - Voice AI) khớp với nhịp điệu của video. Hãy viết một đoạn lời bình ngắn gọn, cảm xúc, đúng trọng tâm (Tiếng Việt). Trả về chuỗi trong trường "voiceoverScript".` : '';
 
       const systemInstruction = `Bạn là một Đạo diễn Nghệ thuật (Art Director) và Kỹ sư Prompt (Master Prompt Engineer) cấp cao cho các hệ thống AI tạo Video (Google Veo, Sora) và AI tạo Nhạc (Flowmusic, Suno).
@@ -169,7 +164,7 @@ TRẢ VỀ JSON DUY NHẤT VỚI CẤU TRÚC SAU. KHÔNG BỌC TRONG MARKDOWN (\
 {
   "videoPrompt": "...",
   "videoPromptVi": "...",
-  "negativeVideoPrompt": "..."${settings?.multiShot ? ",\n  \"shotPrompts\": [\"...\", \"...\"]" : ""}${settings?.generateSFX ? ",\n  \"sfxPrompts\": [\"...\", \"...\"]" : ""}${settings?.generateSEO ? ",\n  \"youtubeTitle\": \"...\",\n  \"youtubeDescription\": \"...\",\n  \"youtubeTags\": [\"...\", \"...\"],\n  \"thumbnailIdeas\": [{\"ideaVi\": \"...\", \"exactPromptEn\": \"...\"}],\n  \"aiDisclaimer\": \"...\"" : ""}${settings?.generateVoiceover ? ",\n  \"voiceoverScript\": \"...\"" : ""},
+  "negativeVideoPrompt": "..."${settings?.multiShot ? `,\n  "shotPrompts": ["...", "..."]` : ""}${settings?.generateSFX ? `,\n  "sfxPrompts": ["...", "..."]` : ""}${settings?.generateSEO ? `,\n  "youtubeTitle": "...",\n  "youtubeDescription": "...",\n  "youtubeTags": ["...", "..."],\n  "thumbnailIdeas": [{"ideaVi": "...", "exactPromptEn": "..."}],\n  "aiDisclaimer": "..."` : ""}${settings?.generateVoiceover ? `,\n  "voiceoverScript": "..."` : ""},
   "musicPrompt": "...",
   "musicPromptVi": "..."
 }`;
@@ -271,8 +266,12 @@ TRẢ VỀ JSON DUY NHẤT VỚI CẤU TRÚC SAU. KHÔNG BỌC TRONG MARKDOWN (\
           return res.json({ trends: [], summary: "Không tìm thấy video nào phù hợp với bộ lọc trong khoảng thời gian này." });
       }
 
-      // Fetch accurate view counts using the videos endpoint
-      const videoIds = items.map((item: any) => item.id.videoId).filter(Boolean).join(',');
+      // Filter only video results (skip channels)
+      const videoIds = items
+        .filter((item: any) => item.id.kind === 'youtube#video' && item.id.videoId)
+        .map((item: any) => item.id.videoId)
+        .join(',');
+      
       let videoSnippets: any[] = [];
       
       if (videoIds) {
@@ -467,3 +466,4 @@ Trả về chuẩn JSON format ĐÚNG NHƯ SAU (không markdown):
 }
 
 startServer();
+
