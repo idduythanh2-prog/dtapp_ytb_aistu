@@ -5,21 +5,27 @@ import { AIProviderSettings, PromptSettings, TrendFilters } from './types';
 // ==========================================
 
 function getGeminiKey(aiConfig: AIProviderSettings): string {
-  return aiConfig.apiKey?.trim() || '';
+  const key = aiConfig.apiKey?.trim();
+  if (!key) throw new Error('Vui lòng nhập Gemini API Key vào ô "Nguồn AI" bên dưới.');
+  return key;
 }
 
-async function callGemini(apiKey: string, model: string, contents: any, config?: any): Promise<string> {
-  if (!apiKey) throw new Error('Vui lòng nhập Gemini API Key vào ô "Nguồn AI" bên dưới.');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const body: any = { contents: Array.isArray(contents) ? contents : [{ parts: [{ text: contents }] }] };
-  if (config) body.generationConfig = config;
+async function callGemini(apiKey: string, prompt: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }]
+    }),
   });
+  
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Gemini API lỗi (${res.status}): ${err.error?.message || 'Kiểm tra lại API Key'}`);
+  }
+  
   const data = await res.json();
-  if (!res.ok) throw new Error(`Gemini API lỗi: ${data.error?.message || JSON.stringify(data)}`);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
@@ -32,8 +38,11 @@ async function callOpenAICompatible(baseUrl: string, apiKey: string, model: stri
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ model, messages, temperature: 0.7 }),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`AI API lỗi (${res.status}): ${err.error?.message || JSON.stringify(err)}`);
+  }
   const data = await res.json();
-  if (!res.ok) throw new Error(`AI API lỗi (${res.status}): ${data.error?.message || JSON.stringify(data)}`);
   return data.choices[0].message.content;
 }
 
@@ -42,8 +51,10 @@ function parseJson(text: string): any {
     return JSON.parse(text.replace(/```json/gi, '').replace(/```/g, '').trim());
   } catch {
     const s = text.indexOf('{'), e = text.lastIndexOf('}');
-    if (s !== -1 && e !== -1) return JSON.parse(text.substring(s, e + 1));
-    throw new Error('AI trả về dữ liệu không hợp lệ.');
+    if (s !== -1 && e !== -1) {
+      try { return JSON.parse(text.substring(s, e + 1)); } catch {}
+    }
+    throw new Error('AI trả về dữ liệu không hợp lệ, thử lại nhé.');
   }
 }
 
@@ -56,7 +67,7 @@ export async function apiBrainstorm(idea: string, aiConfig: AIProviderSettings):
   if (aiConfig.provider === 'custom') {
     return callOpenAICompatible(aiConfig.baseUrl, aiConfig.apiKey, aiConfig.model, '', prompt);
   }
-  return callGemini(getGeminiKey(aiConfig), 'gemini-2.0-flash', prompt);
+  return callGemini(getGeminiKey(aiConfig), prompt);
 }
 
 // ==========================================
@@ -64,13 +75,13 @@ export async function apiBrainstorm(idea: string, aiConfig: AIProviderSettings):
 // ==========================================
 export async function apiGeneratePrompts(idea: string, settings: PromptSettings, aiConfig: AIProviderSettings): Promise<any> {
   const loopConstraint = settings?.isLoop ? `\n\n[CRITICAL REQUIREMENT: SEAMLESS LOOP]\nVideo BẮT BUỘC phải là một vòng lặp hoàn hảo (seamless loop). Khung hình đầu tiên và cuối cùng phải khớp nhau chính xác 100%. Bắt buộc thêm các từ khóa: "seamless loop, perfect loop, identical start and end frames, cinemagraph, continuous smooth motion". Giữ chuyển động camera ở mức tĩnh (Static) hoặc cực kỳ tinh tế để tránh phá vỡ vòng lặp.` : '';
-  const noFaceConstraint = settings?.avoidFaces ? `\n\n[CRITICAL REQUIREMENT: NO HUMAN FACES / ANONYMOUS]\nTuyệt đối không được mô tả chi tiết khuôn mặt người. Nhân vật phải được quay từ phía sau, đội mũ bảo hiểm/mặt nạ, hoặc khuôn mặt bị che khuất. Thêm các từ khóa như "shot from behind, wearing mask, faceless, obscured face, anonymous". Thêm "face, facial features, portrait, smiling, eyes, human face" vào Negative Prompt.` : '';
+  const noFaceConstraint = settings?.avoidFaces ? `\n\n[CRITICAL REQUIREMENT: NO HUMAN FACES / ANONYMOUS]\nTuyệt đối không được mô tả chi tiết khuôn mặt người. Nhân vật phải được quay từ phía sau, đội mũ bảo hiểm/mặt nạ, hoặc khuôn mặt bị che khuất. Thêm "shot from behind, wearing mask, faceless, obscured face, anonymous". Thêm "face, facial features, portrait, smiling, eyes, human face" vào Negative Prompt.` : '';
   const multiShotConstraint = settings?.multiShot ? `\n\n[CRITICAL REQUIREMENT: STORYBOARD / MULTI-SHOT]\nTạo kịch bản 3-4 cảnh quay nối tiếp nhau. Trả về mảng chuỗi tiếng Anh trong trường "shotPrompts".` : '';
   const sfxConstraint = settings?.generateSFX ? `\n\n[CRITICAL REQUIREMENT: SOUND EFFECTS]\nTạo ra 3-5 prompt âm thanh chi tiết bằng tiếng Anh, trả về mảng chuỗi trong trường "sfxPrompts".` : '';
-  const seoConstraint = settings?.generateSEO ? `\n\n[CRITICAL REQUIREMENT: YOUTUBE SEO & METADATA]\nTạo: youtubeTitle, youtubeDescription (có Timestamps), youtubeTags (mảng), aiDisclaimer, thumbnailIdeas (mảng object gồm ideaVi và exactPromptEn).` : '';
+  const seoConstraint = settings?.generateSEO ? `\n\n[CRITICAL REQUIREMENT: YOUTUBE SEO & METADATA]\nTạo: youtubeTitle, youtubeDescription (có Timestamps), youtubeTags (mảng chuỗi), aiDisclaimer, thumbnailIdeas (mảng object gồm ideaVi và exactPromptEn).` : '';
   const voiceoverConstraint = settings?.generateVoiceover ? `\n\n[CRITICAL REQUIREMENT: VOICEOVER SCRIPT]\nViết lời bình ngắn gọn, cảm xúc tiếng Việt. Trả về chuỗi trong trường "voiceoverScript".` : '';
 
-  const systemInstruction = `Bạn là Đạo diễn Nghệ thuật và Kỹ sư Prompt cấp cao cho AI Video (Google Veo) và AI Nhạc (Flowmusic/Suno).
+  const fullPrompt = `Bạn là Đạo diễn Nghệ thuật và Kỹ sư Prompt cấp cao cho AI Video (Google Veo) và AI Nhạc (Flowmusic/Suno).
 
 Tham số đầu vào:
 Ý tưởng: "${idea}"
@@ -86,7 +97,9 @@ Music Tempo: ${settings?.musicTempo || 'Medium'}
 Music Vocals: ${settings?.musicVocals || 'Instrumental'}
 ${seoConstraint}${voiceoverConstraint}${loopConstraint}${noFaceConstraint}${multiShotConstraint}${sfxConstraint}
 
-TRẢ VỀ JSON HỢP LỆ DUY NHẤT, KHÔNG BỌC TRONG MARKDOWN. Cấu trúc:
+QUAN TRỌNG: Chỉ trả về một đối tượng JSON hợp lệ duy nhất. KHÔNG có text giải thích, KHÔNG có markdown, KHÔNG có backtick. Bắt đầu bằng { và kết thúc bằng }.
+
+Cấu trúc JSON bắt buộc:
 {
   "videoPrompt": "...",
   "videoPromptVi": "...",
@@ -97,18 +110,9 @@ TRẢ VỀ JSON HỢP LỆ DUY NHẤT, KHÔNG BỌC TRONG MARKDOWN. Cấu trúc:
 
   let text = '';
   if (aiConfig.provider === 'custom') {
-    text = await callOpenAICompatible(aiConfig.baseUrl, aiConfig.apiKey, aiConfig.model, systemInstruction, idea);
+    text = await callOpenAICompatible(aiConfig.baseUrl, aiConfig.apiKey, aiConfig.model, '', fullPrompt);
   } else {
-    text = await callGemini(
-      getGeminiKey(aiConfig),
-      'gemini-2.0-flash',
-      [{ parts: [{ text: idea }] }],
-      { responseMimeType: 'application/json' }
-    );
-    // If responseMimeType not supported, fallback to regular call with system in prompt
-    if (!text || text.trim() === '') {
-      text = await callGemini(getGeminiKey(aiConfig), 'gemini-2.0-flash', systemInstruction + '\n\nÝ tưởng: ' + idea);
-    }
+    text = await callGemini(getGeminiKey(aiConfig), fullPrompt);
   }
   return parseJson(text);
 }
@@ -133,7 +137,7 @@ export async function apiAnalyzeTrends(filters: TrendFilters, youtubeApiKey: str
 
   const ytRes = await fetch(searchUrl);
   const ytData = await ytRes.json();
-  if (!ytRes.ok) throw new Error(`YouTube API lỗi: ${ytData.error?.message || 'Unknown'}`);
+  if (!ytRes.ok) throw new Error(`YouTube API lỗi: ${ytData.error?.message || 'Kiểm tra lại YouTube API Key'}`);
 
   const items = ytData.items || [];
   if (items.length === 0) return { trends: [], summary: 'Không tìm thấy video phù hợp.' };
@@ -163,7 +167,8 @@ export async function apiAnalyzeTrends(filters: TrendFilters, youtubeApiKey: str
 Dữ liệu:
 ${JSON.stringify(videoSnippets, null, 2)}
 
-Trả về JSON hợp lệ:
+QUAN TRỌNG: Chỉ trả về một đối tượng JSON hợp lệ duy nhất. KHÔNG có text giải thích, KHÔNG có markdown. Bắt đầu bằng { và kết thúc bằng }.
+
 {
   "summary": "Đánh giá tổng quan...",
   "trends": [
@@ -175,7 +180,7 @@ Trả về JSON hợp lệ:
   if (aiConfig.provider === 'custom') {
     text = await callOpenAICompatible(aiConfig.baseUrl, aiConfig.apiKey, aiConfig.model, 'Bạn là chuyên gia phân tích YouTube. Chỉ trả về JSON hợp lệ.', prompt);
   } else {
-    text = await callGemini(getGeminiKey(aiConfig), 'gemini-2.0-flash', prompt, { responseMimeType: 'application/json' });
+    text = await callGemini(getGeminiKey(aiConfig), prompt);
   }
   return parseJson(text);
 }
@@ -193,7 +198,7 @@ export async function apiAnalyzeVideo(url: string, youtubeApiKey: string, aiConf
 
   const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoId}&key=${youtubeApiKey}`);
   const ytData = await ytRes.json();
-  if (!ytRes.ok) throw new Error(`YouTube API lỗi: ${ytData.error?.message || 'Unknown'}`);
+  if (!ytRes.ok) throw new Error(`YouTube API lỗi: ${ytData.error?.message || 'Kiểm tra lại YouTube API Key'}`);
   if (!ytData.items?.length) throw new Error('Không tìm thấy video hoặc video ở chế độ riêng tư.');
 
   const { snippet, statistics } = ytData.items[0];
@@ -208,7 +213,8 @@ Yêu cầu:
 2. Tạo 3 đoạn Hook (3-5 giây đầu) để giữ chân người xem.
 3. Đánh giá chiến lược SEO và gợi ý keyword ngách tốt hơn.
 
-Trả về JSON hợp lệ:
+QUAN TRỌNG: Chỉ trả về một đối tượng JSON hợp lệ duy nhất. KHÔNG có text giải thích, KHÔNG có markdown. Bắt đầu bằng { và kết thúc bằng }.
+
 {
   "suggestedTitles": ["..."],
   "hooks": [{ "type": "...", "script": "...", "reason": "..." }],
@@ -219,7 +225,7 @@ Trả về JSON hợp lệ:
   if (aiConfig.provider === 'custom') {
     text = await callOpenAICompatible(aiConfig.baseUrl, aiConfig.apiKey, aiConfig.model, 'Bạn là chuyên gia marketing YouTube. Chỉ trả về JSON hợp lệ.', prompt);
   } else {
-    text = await callGemini(getGeminiKey(aiConfig), 'gemini-2.0-flash', prompt, { responseMimeType: 'application/json' });
+    text = await callGemini(getGeminiKey(aiConfig), prompt);
   }
   const parsed = parseJson(text);
   parsed.originalStats = { title: snippet.title, views: statistics.viewCount || '0', likes: statistics.likeCount || '0', tags: snippet.tags || [] };
